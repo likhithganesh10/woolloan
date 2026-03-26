@@ -14,6 +14,7 @@ const COLORS = ['#111111', '#555555', '#888888', '#BBBBBB', '#333333'];
 const BulkMode = ({ onBack, onSaveAnalysis, initialMetrics }) => {
   const [step, setStep] = useState(initialMetrics ? 'dashboard' : 'upload'); // upload | dashboard | form | report
   const [metrics, setMetrics] = useState(initialMetrics || null);
+  const [isSaved, setIsSaved] = useState(initialMetrics ? true : false);
   const [hasSaved, setHasSaved] = useState(!!initialMetrics);
   const [filename, setFilename] = useState('');
   const [error, setError] = useState('');
@@ -25,7 +26,9 @@ const BulkMode = ({ onBack, onSaveAnalysis, initialMetrics }) => {
   
   const handleSave = () => {
     if (metrics && !hasSaved) {
-      onSaveAnalysis({ type: 'bulk', label: filename || 'Bulk Analysis', date: new Date().toISOString(), summary: `${metrics.totalUsers.toLocaleString()} profiles · ${metrics.thinFilePercent}% thin-file`, payload: metrics });
+      const safePayload = { ...metrics };
+      delete safePayload.raw; // Fixes QuotaExceededError by stripping the 1000+ row dataset out of localstorage
+      onSaveAnalysis({ type: 'bulk', label: filename || 'Bulk Analysis', date: new Date().toISOString(), summary: `${metrics.totalUsers.toLocaleString()} profiles · ${metrics.thinFilePercent}% thin-file`, payload: safePayload });
       setHasSaved(true);
     }
   };
@@ -45,15 +48,15 @@ const BulkMode = ({ onBack, onSaveAnalysis, initialMetrics }) => {
         const m = processCreditData(results.data);
         setMetrics(m);
         setStep('dashboard');
-        onSaveAnalysis({ type: 'bulk', label: file.name, date: new Date().toISOString(), summary: `${m.totalUsers.toLocaleString()} profiles · ${m.thinFilePercent}% thin-file`, payload: m });
+        setIsSaved(false);
       },
       error: () => { setLoading(false); setError('Error reading the file.'); }
     });
   };
 
-  const handleEvaluate = (data) => {
+  const handleEvaluate = async (data) => {
     setCurrentApplicant(data);
-    const r = evaluateSingleApplicant(data, metrics.raw);
+    const r = await evaluateSingleApplicant(data, metrics.raw);
     setEvalResult(r);
     setStep('report');
   };
@@ -69,8 +72,10 @@ const BulkMode = ({ onBack, onSaveAnalysis, initialMetrics }) => {
         {step === 'dashboard' && (
           <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.75rem' }}>
             <button className="btn btn-black" onClick={handleSave} disabled={hasSaved}>{hasSaved ? 'Dashboard Saved' : 'Save Dashboard'}</button>
+            <button className="btn btn-ghost" onClick={() => { setStep('upload'); setMetrics(null); setHasSaved(false); }}>Edit / Change Dataset</button>
+            <button className="btn btn-ghost" onClick={() => { const newName = window.prompt("Rename this dataset dashboard:", filename || 'Bulk Analysis'); if (newName) { setFilename(newName); setHasSaved(false); } }}>Edit Name</button>
             <button className="btn btn-black" onClick={() => window.print()}><FileText size={16} /> Download PDF</button>
-            <button className="btn btn-black" onClick={() => setStep('form')}><UserPlus size={16} /> Assess Applicant</button>
+            <button className="btn btn-black" onClick={() => { setCurrentApplicant(null); setStep('form'); }}><UserPlus size={16} /> Assess Applicant</button>
             <button className="btn btn-outline" onClick={() => { setStep('upload'); setMetrics(null); setHasSaved(false); }}>New Dataset</button>
           </div>
         )}
@@ -150,7 +155,7 @@ const BulkMode = ({ onBack, onSaveAnalysis, initialMetrics }) => {
 
       {/* ASSESS FORM */}
       {step === 'form' && (
-        <ApplicantForm onEvaluate={handleEvaluate} onBack={() => setStep('dashboard')} />
+        <ApplicantForm initialData={currentApplicant} onEvaluate={handleEvaluate} onBack={() => setStep('dashboard')} />
       )}
 
       {/* REPORT */}

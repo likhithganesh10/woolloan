@@ -1,7 +1,7 @@
 import React from 'react';
 import { ShieldCheck, AlertOctagon, ArrowLeft, RefreshCw } from 'lucide-react';
 
-const ApplicantReport = ({ applicant, result, onReset, onBack }) => {
+const ApplicantReport = ({ applicant, result, onReset, onEdit, onBack }) => {
   if (!result) return null;
   const { riskScore, recommendation, factors, dti } = result;
   const isApproved = riskScore < 60;
@@ -19,6 +19,7 @@ const ApplicantReport = ({ applicant, result, onReset, onBack }) => {
            <button className="btn btn-outline" onClick={onReset}>
              <RefreshCw size={15} /> New Applicant
            </button>
+           <button className="btn btn-ghost" onClick={onEdit}>Edit Parameters</button>
         </div>
       </div>
 
@@ -34,16 +35,17 @@ const ApplicantReport = ({ applicant, result, onReset, onBack }) => {
       </div>
 
       {/* Profile */}
+      
       <div className="panel">
         <div className="panel-title">Applicant Profile</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem' }}>
           {[
-            { label: 'Loan Amount',  value: `$${parseInt(applicant.loanAmount).toLocaleString()}` },
-            { label: 'Annual Income',value: `$${parseInt(applicant.annualIncome).toLocaleString()}` },
-            { label: 'Debt-to-Income', value: `${dti}%` },
-            { label: 'Duration',     value: `${applicant.duration} mo` },
-            { label: 'Age',          value: applicant.age },
-            { label: 'Credit Cards', value: applicant.numCards },
+            { label: 'Loan (₹)',       value: parseInt(applicant.loanAmount).toLocaleString() },
+            { label: 'Income (₹)',     value: parseInt(applicant.annualIncome).toLocaleString() },
+            { label: 'Savings (₹)',    value: parseInt(applicant.currentSavings).toLocaleString() },
+            { label: 'Assets (₹)',     value: parseInt(applicant.assets).toLocaleString() },
+            { label: 'Loan History', value: applicant.loanHistory },
+            { label: 'Est. DTI',     value: `${dti}%` },
           ].map((item, i) => (
             <div key={i}>
               <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>{item.label}</div>
@@ -57,7 +59,7 @@ const ApplicantReport = ({ applicant, result, onReset, onBack }) => {
       <div className="panel">
         <div className="panel-title">Risk Factors Analysis</div>
         <div className="factors-list">
-          {factors.map((f, i) => (
+          {(factors || []).map((f, i) => (
             <div key={i} className={`factor-row ${f.type === 'success' ? 'factor-positive' : f.type === 'danger' ? 'factor-negative' : 'factor-neutral'}`}>
               <span>{f.message}</span>
               <span className={`tag ${f.type === 'success' ? 'tag-green' : f.type === 'danger' ? 'tag-red' : 'tag-yellow'}`}>

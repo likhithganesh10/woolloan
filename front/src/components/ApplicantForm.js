@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 
-const ApplicantForm = ({ onEvaluate, onBack }) => {
-  const [formData, setFormData] = useState({
-    loanAmount: '', duration: '', annualIncome: '', age: '', numCards: ''
+const ApplicantForm = ({ onEvaluate, onBack, initialData }) => {
+  const [formData, setFormData] = useState(initialData || {
+    loanAmount: '', duration: '', annualIncome: '', currentSavings: '', assets: '', loanHistory: 'None'
   });
 
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -11,11 +11,11 @@ const ApplicantForm = ({ onEvaluate, onBack }) => {
   const handleSubmit = (e) => { e.preventDefault(); onEvaluate(formData); };
 
   const fields = [
-    { name: 'loanAmount',    label: 'Requested Loan Amount ($)', placeholder: 'e.g. 15000', type: 'number' },
-    { name: 'duration',      label: 'Duration (Months)',          placeholder: 'e.g. 36',    type: 'number' },
-    { name: 'annualIncome',  label: 'Annual Income ($)',           placeholder: 'e.g. 65000', type: 'number' },
-    { name: 'age',           label: 'Age',                        placeholder: 'e.g. 32',    type: 'number' },
-    { name: 'numCards',      label: 'Active Credit Cards',        placeholder: 'e.g. 1',     type: 'number' },
+    { name: 'loanAmount',    label: 'Requested Loan (₹)',       placeholder: 'e.g. 500000', type: 'number' },
+    { name: 'duration',      label: 'Duration (Months)',          placeholder: 'e.g. 24',    type: 'number' },
+    { name: 'annualIncome',  label: 'Annual Income (₹)',           placeholder: 'e.g. 750000', type: 'number' },
+    { name: 'currentSavings',label: 'Current Savings (₹)',         placeholder: 'e.g. 150000', type: 'number' },
+    { name: 'assets',        label: 'Total Asset Worth (₹)',       placeholder: 'e.g. 1200000', type: 'number' },
   ];
 
   return (
@@ -24,13 +24,13 @@ const ApplicantForm = ({ onEvaluate, onBack }) => {
         <button className="btn btn-outline" onClick={onBack}><ArrowLeft size={16} /> Back</button>
         <div>
           <h2 style={{ fontSize: '1.3rem', fontWeight: 800, letterSpacing: '-0.02em' }}>Assess Individual Applicant</h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>Compare against the loaded population baseline</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>AI Model Comparison against population baseline</p>
         </div>
       </div>
 
       <div className="panel">
         <form onSubmit={handleSubmit}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem' }}>
             {fields.map(f => (
               <div className="field" key={f.name}>
                 <label>{f.label}</label>
@@ -44,9 +44,18 @@ const ApplicantForm = ({ onEvaluate, onBack }) => {
                 />
               </div>
             ))}
+            <div className="field">
+              <label>Loan Repayment History</label>
+              <select name="loanHistory" value={formData.loanHistory} onChange={handleChange} required>
+                <option value="None">No previous loans (Thin File)</option>
+                <option value="Repaid">Successfully repaid previous loans</option>
+                <option value="Ongoing">On-time ongoing repayments</option>
+                <option value="Overdue">History of delays or overdue payments</option>
+              </select>
+            </div>
           </div>
-          <button id="tour-submit-btn" type="submit" className="btn btn-black" style={{ width: '100%', marginTop: '1.25rem' }}>
-            Run Risk Assessment
+          <button id="tour-submit-btn" type="submit" className="btn btn-black" style={{ width: '100%', marginTop: '1.5rem' }}>
+            Run AI Risk Assessment
           </button>
         </form>
       </div>

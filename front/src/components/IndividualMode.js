@@ -111,6 +111,7 @@ const IndividualMode = ({ onBack, onSaveAnalysis, initialResult }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isSaved, setIsSaved] = useState(initialResult ? true : false);
 
   
   const handleSave = () => {
@@ -120,9 +121,31 @@ const IndividualMode = ({ onBack, onSaveAnalysis, initialResult }) => {
     }
   };
 
-  const handleFormSubmit = (e) => {
+  
+  const handleSaveReport = () => {
+    if (!result || isSaved) return;
+    onSaveAnalysis({ type: 'individual', label: filename || 'Bank Statement', date: new Date().toISOString(), summary: `ML Score ${result.score} · ${result.riskLevel} Risk`, payload: result });
+    setIsSaved(true);
+    alert('Report saved successfully');
+  };
+
+  const handleFormSubmit = async (e) => {
     e.preventDefault();
-    setStep('upload');
+    if (result && result.transactions) {
+       // Instantly replay the ML Model logic without file
+       setLoading(true);
+       try {
+          const analysis = await analyseTransactions(result.transactions, manualData);
+          setResult(analysis);
+          setStep('result');
+          const finalSummary = `ML Score ${analysis.score} · ${analysis.riskLevel} Risk`;
+          // Update the history? Only trigger onSave if it didn't already have initialResult to avoid dupes!
+          if (!initialResult) onSaveAnalysis({ type: 'individual', label: filename || 'Edited Record', date: new Date().toISOString(), summary: finalSummary, payload: analysis });
+       } catch (err) {}
+       setLoading(false);
+    } else {
+       setStep('upload');
+    }
   };
 
   const handleFile = async (file) => {
@@ -167,7 +190,7 @@ const IndividualMode = ({ onBack, onSaveAnalysis, initialResult }) => {
           <button className="btn btn-outline" onClick={onBack}><ArrowLeft size={16} /> Back</button>
           <div>
             <h2 style={{ fontSize: '1.4rem', fontWeight: 800, letterSpacing: '-0.02em' }}>AI Individual Assessment</h2>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Powered by Random Forest ML algorithm</p>
+            
           </div>
         </div>
       </div>
@@ -266,6 +289,7 @@ const IndividualMode = ({ onBack, onSaveAnalysis, initialResult }) => {
             </div>
           </div>
 
+          
           <div className="report-grid">
             {/* Analysis Results */}
             <div className="panel">
@@ -287,7 +311,7 @@ const IndividualMode = ({ onBack, onSaveAnalysis, initialResult }) => {
               <div className="factors-list">
                 {result.reasons && result.reasons.map((r, i) => (
                     <div key={i} className={`factor-row ${r.type === 'success' ? 'factor-positive' : r.type === 'danger' ? 'factor-negative' : 'factor-neutral'}`}>
-                       <div><strong>AI Feature Importance:</strong> {r.text}</div>
+                       <div>{r.text}</div>
                     </div>
                 ))}
               </div>
@@ -318,6 +342,7 @@ const IndividualMode = ({ onBack, onSaveAnalysis, initialResult }) => {
             <button className="btn btn-black" onClick={handleSave} disabled={hasSaved}>{hasSaved ? 'Report Saved' : 'Save Report'}</button>
             <button className="btn btn-black" onClick={() => window.print()}><Download size={16} /> Download Report (PDF)</button>
             <button className="btn btn-outline" onClick={() => { setStep('form'); setResult(null); setHasSaved(false); }}>Start New Analysis</button>
+            <button className="btn btn-ghost" onClick={() => setStep('form')}>Edit Parameters</button>
           </div>
         </div>
       )}

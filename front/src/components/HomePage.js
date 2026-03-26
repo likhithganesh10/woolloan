@@ -1,7 +1,7 @@
 import React from 'react';
-import { BarChart2, User, FileText, TrendingUp, Clock } from 'lucide-react';
+import { BarChart2, User, FileText, TrendingUp, Clock, Trash2 } from 'lucide-react';
 
-const HomePage = ({ user, onSelectMode, onViewHistory }) => {
+const HomePage = ({ user, onSelectMode, onViewHistory, onDeleteHistory }) => {
   const analyses = user.analyses || [];
   const bulkCount = analyses.filter(a => a.type === 'bulk').length;
   const indivCount = analyses.filter(a => a.type === 'individual').length;
@@ -78,17 +78,22 @@ const HomePage = ({ user, onSelectMode, onViewHistory }) => {
                 <th>Mode</th>
                 <th>Label</th>
                 <th style={{ width: '40%' }}>Result</th>
-                <th></th>
+                <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {[...analyses].reverse().slice(0, 5).map((a, i) => (
-                <tr key={i} style={{ cursor: 'pointer' }} onClick={() => onViewHistory(a)} title="Click to view full saved report">
+                <tr key={i}>
                   <td>{new Date(a.date).toLocaleDateString()}</td>
                   <td><span className={`tag ${a.type === 'individual' ? 'tag-gray' : 'tag-gray'}`}>{a.type === 'individual' ? 'Individual' : 'Bulk'}</span></td>
                   <td>{a.label}</td>
                   <td>{a.summary}</td>
-                  <td style={{ textAlign: 'right', color: 'var(--accent)', fontWeight: 600 }}>View &rarr;</td>
+                  <td style={{ textAlign: 'right' }}>
+                     <button className="btn btn-outline" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', marginRight: '0.5rem' }} onClick={() => onViewHistory(a)}>View &rarr;</button>
+                     <button className="btn btn-outline" style={{ padding: '0.4rem 0.6rem', color: 'var(--danger)', borderColor: 'var(--danger)' }} onClick={() => { if(window.confirm('Delete this history record?')) onDeleteHistory(a.date); }}>
+                        <Trash2 size={14} />
+                     </button>
+                  </td>
                 </tr>
               ))}
             </tbody>

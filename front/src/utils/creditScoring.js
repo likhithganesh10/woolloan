@@ -84,46 +84,60 @@ export const processCreditData = (data) => {
   };
 };
 
-export const evaluateSingleApplicant = (applicant, dataset) => {
-  // Extract numerical values safely
+export const evaluateSingleApplicant = async (applicant, dataset) => {
   const reqAmount = parseFloat(applicant.loanAmount) || 0;
-  const income = parseFloat(applicant.annualIncome) || 0;
-  const age = parseInt(applicant.age) || 30;
-  const numCards = parseInt(applicant.numCards) || 0;
+  const annualIncome = parseFloat(applicant.annualIncome) || 0;
   
-  const dti = income > 0 ? ((reqAmount / 12) / (income / 12)) * 100 : 100; // Mock DTI 
+  // DTI heuristic based on annual income
+  const dti = annualIncome > 0 ? ((reqAmount / (applicant.duration || 12)) / (annualIncome / 12)) * 100 : 100; 
+
+  const income = annualIncome / 12; // Monthly
+  const savings = parseFloat(applicant.currentSavings) || 0;
+  const assets = parseFloat(applicant.assets) || 0;
+  const loanHistory = applicant.loanHistory || 'None';
   
-  let riskScore = 50; // Starting baseline
+  let aiScore = 600;
+  let riskLevel = 'Medium';
   let factors = [];
-  
-  if (dti > 40) {
-    riskScore += 25;
-    factors.push({ type: 'danger', message: `High Debt-to-Income Request (${dti.toFixed(1)}%)` });
-  } else {
-    riskScore -= 10;
-    factors.push({ type: 'success', message: `Healthy Debt-to-Income Request (${dti.toFixed(1)}%)` });
+
+  try {
+     const res = await fetch('https://woolloan-1.onrender.com/api/score/individual', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({
+             income: income,
+             savings: savings,
+             assets: assets,
+             loanHistory: loanHistory,
+             flowRate: 15, // Baseline approximation for form-only entries
+             totalCredit: income
+         })
+     });
+     if (res.ok) {
+         const data = await res.json();
+         aiScore = data.score;
+         riskLevel = data.riskLevel;
+         // Map RF reasons format to Bulk 'factors' format
+         if (data.reasons) {
+             factors = data.reasons.map(r => ({ type: r.type, message: r.text }));
+         }
+     }
+  } catch(e) { 
+     console.error("AI API Error", e);
+     factors.push({ type: 'danger', message: 'AI Backend offline, fallback metrics used.' });
   }
 
-  if (numCards <= 1) {
-    riskScore += 15;
-    factors.push({ type: 'warning', message: `Thin-File Warning: Very limited credit lines.` });
-  } else {
-    riskScore -= 5;
-    factors.push({ type: 'success', message: `Adequate active credit lines.` });
-  }
-
-  if (age < 25) {
-    riskScore += 5;
-    factors.push({ type: 'warning', message: `Younger demographic statistically correlates slightly higher risk.` });
-  }
-
-  // Ensure bounds
+  // Translate 300-850 Random Forest scale back to 0-100 Bulk Scale visually
+  // 850 = 0 risk, 300 = 100 risk
+  let riskScore = Math.round(100 - ((aiScore - 300) / 550 * 100));
   riskScore = Math.max(0, Math.min(100, riskScore));
 
   let recommendation = 'Review Required';
   if (riskScore < 30) recommendation = 'Highly Likely to Approve';
-  else if (riskScore < 60) recommendation = 'Potential to Approve (Manual Review)';
+  else if (riskScore < 60) recommendation = 'Potential to Approve (Manual AI Review)';
   else recommendation = 'High Risk - Likely Reject';
+
+  if (dti > 40) factors.push({ type: 'warning', message: `High Structural Debt-to-Income Request (${dti.toFixed(1)}%)` });
 
   return {
     riskScore,
