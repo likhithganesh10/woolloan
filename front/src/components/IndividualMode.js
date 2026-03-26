@@ -4,8 +4,8 @@ import { parsePdfBankStatement } from '../utils/pdfParser';
 import { UploadCloud, FileText, AlertCircle, ArrowLeft, TrendingUp, TrendingDown, Download, CheckCircle, Wallet, User, Briefcase, Info } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
 
-// ── Enhanced analysis including manual context ──
-const analyseTransactions = (rows, manualData) => {
+// ── Enhanced analysis including ML Backend call ──
+const analyseTransactions = async (rows, manualData) => {
   let totalCredit = 0, totalDebit = 0;
   const categories = {};
   const monthly = {};
@@ -52,40 +52,43 @@ const analyseTransactions = (rows, manualData) => {
   const savingsFlow = totalCredit - totalDebit;
   const flowRate = totalCredit > 0 ? (savingsFlow / totalCredit) * 100 : 0;
   
-  // ── INTEGRATED SCORING ──
-  // Base score: 600
+  // ── INTEGRATED ML SCORING (Python Random Forest) ──
   let score = 600;
-  const reasons = [];
-
-  // 1. Transaction-based flow factors (+/- 100)
-  if (flowRate > 25) { score += 50; reasons.push({ type: 'success', text: `Strong savings retention (${flowRate.toFixed(1)}%) (+50)` }); }
-  else if (flowRate > 0) { score += 10; reasons.push({ type: 'success', text: 'Positive cash sustainment (+10)' }); }
-  else { score -= 50; reasons.push({ type: 'danger', text: 'Negative cash flow detected (-50)' }); }
+  let riskLevel = 'Medium';
+  let reasons = [];
   
-  if (totalCredit > 50000) { score += 30; reasons.push({ type: 'success', text: 'High regular inflows (+30)' }); }
-
-  // 2. Manual Context Factors (+/- 150)
-  const income = parseFloat(manualData.monthlyIncome || 0);
-  const savings = parseFloat(manualData.currentSavings || 0);
-  const assets = parseFloat(manualData.assets || 0);
-  const history = manualData.loanHistory;
-
-  if (income > 80000) { score += 40; reasons.push({ type: 'success', text: 'High reported monthly income (+40)' }); }
-  if (savings > (income * 3)) { score += 50; reasons.push({ type: 'success', text: 'Healthy liquid savings buffer (+50)' }); }
-  if (assets > 500000) { score += 40; reasons.push({ type: 'success', text: 'Significant fixed asset worth (+40)' }); }
-  
-  if (history === 'None') { score += 10; reasons.push({ type: 'warning', text: 'Thin-file starting baseline (+10)' }); }
-  else if (history === 'Repaid') { score += 60; reasons.push({ type: 'success', text: 'Proven repayment credibility (+60)' }); }
-  else if (history === 'Ongoing') { score += 20; reasons.push({ type: 'success', text: 'Active on-time repayments (+20)' }); }
-  else if (history === 'Overdue') { score -= 90; reasons.push({ type: 'danger', text: 'History of overdue payments (-90)' }); }
-
-  score = Math.max(300, Math.min(850, Math.round(score)));
-  const riskLevel = score >= 720 ? 'Low' : score >= 620 ? 'Medium' : 'High';
+  try {
+     const res = await fetch('http://localhost:5001/api/score/individual', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({
+             income: manualData.monthlyIncome,
+             savings: manualData.currentSavings,
+             assets: manualData.assets,
+             loanHistory: manualData.loanHistory,
+             flowRate: flowRate,
+             totalCredit: totalCredit
+         })
+     });
+     if (res.ok) {
+         const data = await res.json();
+         score = data.score;
+         riskLevel = data.riskLevel;
+         reasons = data.reasons || [];
+     } else {
+         console.warn("ML API returned an error! Falling back to base score 600");
+     }
+  } catch(e) { 
+     console.error("ML Backend failed, please check if Python Flask is running on port 5001", e);
+     reasons = [{ type: 'danger', text: 'AI Backend offline. Default Risk Assigned.' }];
+  }
 
   const monthlyArr = Object.entries(monthly).sort(([a], [b]) => a < b ? -1 : 1).slice(-6).map(([month, v]) => ({ month: month.replace(/^\d{4}-/, ''), ...v }));
   const catArr = Object.entries(categories).filter(([, v]) => v > 0).sort(([, a], [, b]) => b - a).map(([name, value]) => ({ name, value: Math.round(value) }));
 
   // ── LENDING CALCULATION ──
+  const income = parseFloat(manualData.monthlyIncome || 0);
+  const assets = parseFloat(manualData.assets || 0);
   const suggestedLimit = Math.round((income * 3) * (score / 600) + (assets * 0.05));
   const minDuration = score >= 720 ? '24 - 36 months' : score >= 620 ? '12 - 24 months' : '6 - 12 months';
 
@@ -113,21 +116,40 @@ const IndividualMode = ({ onBack, onSaveAnalysis, initialResult }) => {
     setStep('upload');
   };
 
-  const handleFile = (file) => {
-    if (!file || !file.name.endsWith('.csv')) { setError('Please upload a CSV file.'); return; }
+  const handleFile = async (file) => {
+    if (!file) return;
+    const isCsv = file.name.endsWith('.csv');
+    const isPdf = file.name.endsWith('.pdf');
+    if (!isCsv && !isPdf) { setError('Please upload a CSV or PDF file.'); return; }
+    
     setError(''); setLoading(true); setFilename(file.name);
-    Papa.parse(file, {
-      header: true, skipEmptyLines: true,
-      complete: (results) => {
-        setLoading(false);
-        if (!results.data || results.data.length === 0) { setError('CSV is empty.'); return; }
-        const analysis = analyseTransactions(results.data, manualData);
+    
+    if (isPdf) {
+      try {
+        const rows = await parsePdfBankStatement(file);
+        if (rows.length === 0) { setError('No legible transactions found in PDF.'); setLoading(false); return; }
+        const analysis = await analyseTransactions(rows, manualData);
         setResult(analysis);
         setStep('result');
-        onSaveAnalysis({ type: 'individual', label: file.name, date: new Date().toISOString(), summary: `Score ${analysis.score} · ${analysis.riskLevel} Risk` });
-      },
-      error: () => { setLoading(false); setError('Error reading file.'); }
-    });
+        onSaveAnalysis({ type: 'individual', label: file.name, date: new Date().toISOString(), summary: `ML Score ${analysis.score} · ${analysis.riskLevel} Risk`, payload: analysis });
+      } catch (err) {
+        setLoading(false); setError('Error reading PDF file.');
+      }
+      setLoading(false);
+    } else {
+      Papa.parse(file, {
+        header: true, skipEmptyLines: true,
+        complete: async (results) => {
+          if (!results.data || results.data.length === 0) { setError('CSV is empty.'); setLoading(false); return; }
+          const analysis = await analyseTransactions(results.data, manualData);
+          setResult(analysis);
+          setStep('result');
+          onSaveAnalysis({ type: 'individual', label: file.name, date: new Date().toISOString(), summary: `ML Score ${analysis.score} · ${analysis.riskLevel} Risk`, payload: analysis });
+          setLoading(false);
+        },
+        error: () => { setLoading(false); setError('Error reading file.'); }
+      });
+    }
   };
 
   return (
@@ -137,8 +159,8 @@ const IndividualMode = ({ onBack, onSaveAnalysis, initialResult }) => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <button className="btn btn-outline" onClick={onBack}><ArrowLeft size={16} /> Back</button>
           <div>
-            <h2 style={{ fontSize: '1.4rem', fontWeight: 800, letterSpacing: '-0.02em' }}>Individual Credit Assessment</h2>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Comprehensive personal risk modelling</p>
+            <h2 style={{ fontSize: '1.4rem', fontWeight: 800, letterSpacing: '-0.02em' }}>AI Individual Assessment</h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Powered by Random Forest ML algorithm</p>
           </div>
         </div>
       </div>
@@ -181,7 +203,7 @@ const IndividualMode = ({ onBack, onSaveAnalysis, initialResult }) => {
       {step === 'upload' && (
         <div className="panel" style={{ maxWidth: 700, margin: '0 auto' }}>
           <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><UploadCloud size={20} /> Step 2: Bank Statement (CSV)</h3>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><UploadCloud size={20} /> Step 2: Bank Statement (CSV/PDF)</h3>
             <button className="btn btn-ghost" onClick={() => setStep('form')} style={{ fontSize: '0.8rem' }}>Edit Info</button>
           </div>
           <div
@@ -193,7 +215,7 @@ const IndividualMode = ({ onBack, onSaveAnalysis, initialResult }) => {
           >
             <input type="file" id="ind-csv" accept=".csv,.pdf" style={{ display: 'none' }} onChange={e => { if (e.target.files[0]) handleFile(e.target.files[0]); }} />
             {loading ? (
-              <><FileText size={36} className="file-upload-icon" /><h3>Syncing statement data...</h3></>
+              <><FileText size={36} className="file-upload-icon" /><h3>Extracting & Contacting AI Backend...</h3></>
             ) : (
               <><UploadCloud size={36} /><h3>Drop bank statement (CSV/PDF) here</h3><span>We'll merge this file with your financial context</span></>
             )}
@@ -208,7 +230,7 @@ const IndividualMode = ({ onBack, onSaveAnalysis, initialResult }) => {
           {/* Summary Row */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
             <div className="metric-box" style={{ borderTop: `4px solid ${result.riskLevel === 'Low' ? 'var(--success)' : result.riskLevel === 'Medium' ? 'var(--warning)' : 'var(--danger)'}` }}>
-              <div className="metric-box-label">Consolidated Risk Score</div>
+              <div className="metric-box-label">AI Risk Score (RF)</div>
               <div className="metric-box-value" style={{ color: result.riskLevel === 'Low' ? 'var(--success)' : result.riskLevel === 'Medium' ? 'var(--warning)' : 'var(--danger)' }}>{result.score}</div>
               <span className={`tag ${result.riskLevel === 'Low' ? 'tag-green' : result.riskLevel === 'Medium' ? 'tag-yellow' : 'tag-red'}`}>{result.riskLevel} Risk Profile</span>
             </div>
@@ -256,14 +278,11 @@ const IndividualMode = ({ onBack, onSaveAnalysis, initialResult }) => {
               <hr className="section-divider" />
               
               <div className="factors-list">
-                <div className={`factor-row ${result.manualData.loanHistory === 'Overdue' ? 'factor-negative' : 'factor-positive'}`}>
-                   <div><strong>Repayment Credibility:</strong> {result.manualData.loanHistory} history recorded.</div>
-                   <CheckCircle size={16} />
-                </div>
-                <div className={`factor-row ${result.flowRate > 0 ? 'factor-positive' : 'factor-negative'}`}>
-                   <div><strong>Cash Sustainment:</strong> {result.flowRate.toFixed(1)}% savings retention detected.</div>
-                   <Info size={16} />
-                </div>
+                {result.reasons && result.reasons.map((r, i) => (
+                    <div key={i} className={`factor-row ${r.type === 'success' ? 'factor-positive' : r.type === 'danger' ? 'factor-negative' : 'factor-neutral'}`}>
+                       <div><strong>AI Feature Importance:</strong> {r.text}</div>
+                    </div>
+                ))}
               </div>
             </div>
 
