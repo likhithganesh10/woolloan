@@ -106,10 +106,19 @@ const IndividualMode = ({ onBack, onSaveAnalysis, initialResult }) => {
   const [step, setStep] = useState(initialResult ? 'result' : 'form'); // form | upload | result
   const [manualData, setManualData] = useState({ monthlyIncome: '', currentSavings: '', assets: '', loanHistory: 'None' });
   const [result, setResult] = useState(initialResult || null);
+  const [hasSaved, setHasSaved] = useState(!!initialResult);
   const [filename, setFilename] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+
+  
+  const handleSave = () => {
+    if (result && !hasSaved) {
+      onSaveAnalysis({ type: 'individual', label: filename || 'Statement', date: new Date().toISOString(), summary: `ML Score ${result.score} · ${result.riskLevel} Risk`, payload: result });
+      setHasSaved(true);
+    }
+  };
 
   const handleFormSubmit = (e) => {
     e.preventDefault();
@@ -131,8 +140,7 @@ const IndividualMode = ({ onBack, onSaveAnalysis, initialResult }) => {
         const analysis = await analyseTransactions(rows, manualData);
         setResult(analysis);
         setStep('result');
-        onSaveAnalysis({ type: 'individual', label: file.name, date: new Date().toISOString(), summary: `ML Score ${analysis.score} · ${analysis.riskLevel} Risk`, payload: analysis });
-      } catch (err) {
+              } catch (err) {
         setLoading(false); setError('Error reading PDF file.');
       }
       setLoading(false);
@@ -144,8 +152,7 @@ const IndividualMode = ({ onBack, onSaveAnalysis, initialResult }) => {
           const analysis = await analyseTransactions(results.data, manualData);
           setResult(analysis);
           setStep('result');
-          onSaveAnalysis({ type: 'individual', label: file.name, date: new Date().toISOString(), summary: `ML Score ${analysis.score} · ${analysis.riskLevel} Risk`, payload: analysis });
-          setLoading(false);
+                    setLoading(false);
         },
         error: () => { setLoading(false); setError('Error reading file.'); }
       });
@@ -308,8 +315,9 @@ const IndividualMode = ({ onBack, onSaveAnalysis, initialResult }) => {
           </div>
 
           <div className="report-actions" style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+            <button className="btn btn-black" onClick={handleSave} disabled={hasSaved}>{hasSaved ? 'Report Saved' : 'Save Report'}</button>
             <button className="btn btn-black" onClick={() => window.print()}><Download size={16} /> Download Report (PDF)</button>
-            <button className="btn btn-outline" onClick={() => { setStep('form'); setResult(null); }}>Start New Analysis</button>
+            <button className="btn btn-outline" onClick={() => { setStep('form'); setResult(null); setHasSaved(false); }}>Start New Analysis</button>
           </div>
         </div>
       )}

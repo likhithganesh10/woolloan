@@ -14,12 +14,21 @@ const COLORS = ['#111111', '#555555', '#888888', '#BBBBBB', '#333333'];
 const BulkMode = ({ onBack, onSaveAnalysis, initialMetrics }) => {
   const [step, setStep] = useState(initialMetrics ? 'dashboard' : 'upload'); // upload | dashboard | form | report
   const [metrics, setMetrics] = useState(initialMetrics || null);
+  const [hasSaved, setHasSaved] = useState(!!initialMetrics);
   const [filename, setFilename] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [evalResult, setEvalResult] = useState(null);
   const [currentApplicant, setCurrentApplicant] = useState(null);
+
+  
+  const handleSave = () => {
+    if (metrics && !hasSaved) {
+      onSaveAnalysis({ type: 'bulk', label: filename || 'Bulk Analysis', date: new Date().toISOString(), summary: `${metrics.totalUsers.toLocaleString()} profiles · ${metrics.thinFilePercent}% thin-file`, payload: metrics });
+      setHasSaved(true);
+    }
+  };
 
   const handleFile = (file) => {
     if (!file) return;
@@ -59,9 +68,10 @@ const BulkMode = ({ onBack, onSaveAnalysis, initialMetrics }) => {
         </div>
         {step === 'dashboard' && (
           <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.75rem' }}>
+            <button className="btn btn-black" onClick={handleSave} disabled={hasSaved}>{hasSaved ? 'Dashboard Saved' : 'Save Dashboard'}</button>
             <button className="btn btn-black" onClick={() => window.print()}><FileText size={16} /> Download PDF</button>
             <button className="btn btn-black" onClick={() => setStep('form')}><UserPlus size={16} /> Assess Applicant</button>
-            <button className="btn btn-outline" onClick={() => { setStep('upload'); setMetrics(null); }}>New Dataset</button>
+            <button className="btn btn-outline" onClick={() => { setStep('upload'); setMetrics(null); setHasSaved(false); }}>New Dataset</button>
           </div>
         )}
       </div>
