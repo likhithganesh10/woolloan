@@ -48,7 +48,7 @@ const ApplicantForm = ({ onEvaluate, onBack }) => {
                 required
                 value={formData.loanAmount}
                 onChange={handleChange}
-                style={{ width: '100%', padding: '0.75rem 0.75rem 0.75rem 2.5rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--card-border)', borderRadius: '8px', color: 'white', outline: 'none' }}
+                style={{ width: '100%', padding: '0.75rem 0.75rem 0.75rem 2.5rem', background: 'rgba(15,23,42,0.02)', border: '1px solid var(--card-border)', borderRadius: '8px', color: 'var(--text-main)', outline: 'none' }}
                 placeholder="e.g. 15000"
               />
             </div>
@@ -64,7 +64,7 @@ const ApplicantForm = ({ onEvaluate, onBack }) => {
                 required
                 value={formData.duration}
                 onChange={handleChange}
-                style={{ width: '100%', padding: '0.75rem 0.75rem 0.75rem 2.5rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--card-border)', borderRadius: '8px', color: 'white', outline: 'none' }}
+                style={{ width: '100%', padding: '0.75rem 0.75rem 0.75rem 2.5rem', background: 'rgba(15,23,42,0.02)', border: '1px solid var(--card-border)', borderRadius: '8px', color: 'var(--text-main)', outline: 'none' }}
                 placeholder="e.g. 36"
               />
             </div>
@@ -84,7 +84,7 @@ const ApplicantForm = ({ onEvaluate, onBack }) => {
                 required
                 value={formData.annualIncome}
                 onChange={handleChange}
-                style={{ width: '100%', padding: '0.75rem 0.75rem 0.75rem 2.5rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--card-border)', borderRadius: '8px', color: 'white', outline: 'none' }}
+                style={{ width: '100%', padding: '0.75rem 0.75rem 0.75rem 2.5rem', background: 'rgba(15,23,42,0.02)', border: '1px solid var(--card-border)', borderRadius: '8px', color: 'var(--text-main)', outline: 'none' }}
                 placeholder="e.g. 65000"
               />
             </div>
@@ -100,7 +100,7 @@ const ApplicantForm = ({ onEvaluate, onBack }) => {
                 required
                 value={formData.age}
                 onChange={handleChange}
-                style={{ width: '100%', padding: '0.75rem 0.75rem 0.75rem 2.5rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--card-border)', borderRadius: '8px', color: 'white', outline: 'none' }}
+                style={{ width: '100%', padding: '0.75rem 0.75rem 0.75rem 2.5rem', background: 'rgba(15,23,42,0.02)', border: '1px solid var(--card-border)', borderRadius: '8px', color: 'var(--text-main)', outline: 'none' }}
                 placeholder="e.g. 32"
               />
             </div>
@@ -116,7 +116,7 @@ const ApplicantForm = ({ onEvaluate, onBack }) => {
                 required
                 value={formData.numCards}
                 onChange={handleChange}
-                style={{ width: '100%', padding: '0.75rem 0.75rem 0.75rem 2.5rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--card-border)', borderRadius: '8px', color: 'white', outline: 'none' }}
+                style={{ width: '100%', padding: '0.75rem 0.75rem 0.75rem 2.5rem', background: 'rgba(15,23,42,0.02)', border: '1px solid var(--card-border)', borderRadius: '8px', color: 'var(--text-main)', outline: 'none' }}
                 placeholder="e.g. 1"
               />
             </div>
