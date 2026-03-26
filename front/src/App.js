@@ -1,132 +1,122 @@
-import React, { useState } from "react";
-import Hero from "./components/Hero";
-import Dashboard from "./components/Dashboard";
-import ApplicantForm from "./components/ApplicantForm";
-import ApplicantReport from "./components/ApplicantReport";
-import HelpPage from "./components/HelpPage";
-import WizardHelper from "./components/WizardHelper";
-import { processCreditData, evaluateSingleApplicant } from "./utils/creditScoring";
-import { HelpCircle } from "lucide-react";
+import React, { useState, useEffect } from 'react';
+import LoginPage, { getSession, clearSession, getUsers } from './components/LoginPage';
+import HomePage from './components/HomePage';
+import IndividualMode from './components/IndividualMode';
+import BulkMode from './components/BulkMode';
+import WizardHelper from './components/WizardHelper';
+
+const AUTH_KEY = 'credit_users';
 
 function App() {
-  const [datasetName, setDatasetName] = useState("");
-  const [metrics, setMetrics] = useState(null);
-  const [view, setView] = useState("hero"); // hero | dashboard | form | report | help
-  const [evaluationResult, setEvaluationResult] = useState(null);
-  const [currentApplicant, setCurrentApplicant] = useState(null);
+  const [user, setUser] = useState(null);
+  const [view, setView] = useState('home'); // home | individual | bulk
   const [toast, setToast] = useState(null);
+
+  // Restore session on load
+  useEffect(() => {
+    const session = getSession();
+    if (session) setUser(session);
+  }, []);
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 4000);
   };
 
-  const handleDataLoaded = (data, filename) => {
-    setDatasetName(filename);
-    const calculatedMetrics = processCreditData(data);
-    setMetrics(calculatedMetrics);
-    setView("dashboard");
-    showToast(`Successfully analyzed ${calculatedMetrics.totalUsers.toLocaleString()} records!`);
+  const handleLogin = (u) => {
+    setUser(u);
+    showToast(`Welcome back, ${u.name}!`, 'success');
+    setView('home');
   };
 
-  const handleReset = () => {
-    setMetrics(null);
-    setDatasetName("");
-    setView("hero");
-    showToast("Model reset successfully.", "info");
+  const handleLogout = () => {
+    clearSession();
+    setUser(null);
+    setView('home');
+    showToast('Signed out successfully.', 'info');
   };
 
-  const startApplicantEvaluation = () => {
-    setView("form");
+  // Persist an analysis record to the user's history
+  const handleSaveAnalysis = (record) => {
+    const users = JSON.parse(localStorage.getItem(AUTH_KEY) || '[]');
+    const idx = users.findIndex(u => u.id === user.id);
+    if (idx === -1) return;
+    if (!users[idx].analyses) users[idx].analyses = [];
+    users[idx].analyses.push(record);
+    localStorage.setItem(AUTH_KEY, JSON.stringify(users));
+    setUser({ ...users[idx] });
   };
 
-  const handleApplicantEvaluate = (applicantData) => {
-    setCurrentApplicant(applicantData);
-    const result = evaluateSingleApplicant(applicantData, metrics.raw);
-    setEvaluationResult(result);
-    setView("report");
-    showToast("Applicant Assessment Complete!", result.riskScore > 60 ? "error" : "success");
-  };
+  // Wizard context messages
+  let wizardMessage = '';
+  if (!user) wizardMessage = 'Welcome to CreditIQ! Sign in or register to start analysing credit data.';
+  else if (view === 'home') wizardMessage = `Hi ${user.name.split(' ')[0]}! Choose a mode: Individual for personal bank statements, or Bulk for large datasets.`;
+  else if (view === 'individual') wizardMessage = 'Upload a CSV bank statement. I\'ll detect columns automatically and generate a personal credit analysis.';
+  else if (view === 'bulk') wizardMessage = 'Upload a multi-user CSV dataset. Then use "Assess Applicant" to compare someone against the population.';
 
-  // Determine Wizard Message based on current view
-  let wizardMessage = "";
-  if (view === "hero") wizardMessage = "Greetings! I'm your Risk Assessor Aide. Upload a CSV dataset to begin the magic!";
-  if (view === "dashboard") wizardMessage = `Dataset loaded! We analyzed ${metrics?.totalUsers.toLocaleString()} profiles. Click 'Assess Applicant' to simulate a single loan.`;
-  if (view === "form") wizardMessage = "Please enter the applicant's details. I'll compare them against our historical baseline.";
-  if (view === "report") wizardMessage = "Here is my evaluation! Read the risk factors carefully before making a lending decision.";
-  if (view === "help") wizardMessage = "This documentation explains our mock-ML model and application architecture.";
+  // Not authenticated — show login
+  if (!user) {
+    return (
+      <>
+        <LoginPage onLogin={handleLogin} />
+        {toast && (
+          <div className="toast-container">
+            <div className={`toast ${toast.type}`}>{toast.msg}</div>
+          </div>
+        )}
+        <WizardHelper message={wizardMessage} isVisible={true} />
+      </>
+    );
+  }
 
   return (
-    <div className="app-container">
+    <div className="app-shell">
+      {/* Navbar */}
+      <nav className="app-nav">
+        <span className="nav-brand">Credit<span>IQ</span></span>
+        <div className="nav-right">
+          <span className="nav-user">{user.name}</span>
+          {view !== 'home' && (
+            <button className="btn btn-outline" onClick={() => setView('home')}>Home</button>
+          )}
+          <button className="btn btn-ghost" onClick={handleLogout}>Sign out</button>
+        </div>
+      </nav>
 
-      {/* Global Navigation / Help Button */}
-      {view !== 'help' && (
-        <button
-          onClick={() => setView('help')}
-          style={{ position: 'absolute', top: '2rem', right: '2rem', background: 'transparent', border: 'none', color: 'var(--text-main)', cursor: 'pointer', display: 'flex', gap: '0.5rem', alignItems: 'center', zIndex: 10 }}
-          className="btn"
-        >
-          <HelpCircle size={20} /> <span style={{ fontFamily: 'Playfair Display' }}>Help & Docs</span>
-        </button>
-      )}
-
-      {/* Toast Notification */}
+      {/* Toast */}
       {toast && (
         <div className="toast-container">
-          <div className={`toast ${toast.type}`}>
-            {toast.msg}
-          </div>
+          <div className={`toast ${toast.type}`}>{toast.msg}</div>
         </div>
       )}
 
-      {/* Animated View Wrappers */}
-      {view === "hero" && (
-        <div className="page-enter">
-          <Hero onDataLoaded={handleDataLoaded} />
-        </div>
-      )}
-
-      {view === "dashboard" && (
-        <div className="page-enter">
-          <Dashboard
-            metrics={metrics}
-            onReset={handleReset}
-            filename={datasetName}
-            onEvaluateSingle={startApplicantEvaluation}
+      {/* Main content */}
+      <main className="app-main">
+        {view === 'home' && (
+          <HomePage
+            user={user}
+            onSelectMode={(mode) => {
+              setView(mode);
+              showToast(mode === 'individual' ? 'Individual mode activated' : 'Bulk mode activated', 'info');
+            }}
           />
-        </div>
-      )}
-
-      {view === "form" && (
-        <div className="page-enter">
-          <ApplicantForm
-            onEvaluate={handleApplicantEvaluate}
-            onBack={() => setView("dashboard")}
+        )}
+        {view === 'individual' && (
+          <IndividualMode
+            onBack={() => setView('home')}
+            user={user}
+            onSaveAnalysis={handleSaveAnalysis}
           />
-        </div>
-      )}
-
-      {view === "report" && (
-        <div className="page-enter">
-          <ApplicantReport
-            applicant={currentApplicant}
-            result={evaluationResult}
-            onReset={() => setView("form")}
-            onBack={() => setView("dashboard")}
+        )}
+        {view === 'bulk' && (
+          <BulkMode
+            onBack={() => setView('home')}
+            onSaveAnalysis={handleSaveAnalysis}
           />
-        </div>
-      )}
+        )}
+      </main>
 
-      {view === "help" && (
-        <div className="page-enter">
-          <HelpPage onBack={() => {
-            if (metrics) setView("dashboard");
-            else setView("hero");
-          }} />
-        </div>
-      )}
-
-      {/* Floating Wizard Helper */}
+      {/* Floating Wizard */}
       <WizardHelper message={wizardMessage} isVisible={true} />
     </div>
   );

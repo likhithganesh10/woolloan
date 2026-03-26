@@ -1,74 +1,68 @@
 import React from 'react';
-import { ShieldCheck, AlertOctagon, Info, ArrowLeft } from 'lucide-react';
+import { ShieldCheck, AlertOctagon, ArrowLeft, RefreshCw } from 'lucide-react';
 
-const ApplicantReport = ({ applicant, result, onReset }) => {
+const ApplicantReport = ({ applicant, result, onReset, onBack }) => {
   if (!result) return null;
-
   const { riskScore, recommendation, factors, dti } = result;
-
-  const isApproved = riskScore < 60; // Just a visual threshold
-  const ColorIcon = isApproved ? ShieldCheck : AlertOctagon;
-  const iconColor = isApproved ? 'var(--success)' : 'var(--danger)';
+  const isApproved = riskScore < 60;
 
   return (
-    <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto', animation: 'fadeIn 0.5s ease' }}>
-      
-      <div className="dashboard-header">
+    <div className="page-enter" style={{ maxWidth: 720, margin: '0 auto' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.75rem' }}>
+        <button className="btn btn-outline" onClick={onBack}><ArrowLeft size={16} /> Dashboard</button>
         <div>
-          <h2>Evaluation Complete</h2>
-          <p style={{ color: 'var(--text-muted)' }}>Comparison against baseline dataset generated.</p>
+          <h2 style={{ fontSize: '1.3rem', fontWeight: 800, letterSpacing: '-0.02em' }}>Applicant Risk Report</h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>Comparison against loaded population baseline</p>
         </div>
-        <button className="btn btn-outline" onClick={onReset}>
-          <ArrowLeft size={18} /> Evaluate Another
+        <button className="btn btn-outline" style={{ marginLeft: 'auto' }} onClick={onReset}>
+          <RefreshCw size={15} /> New Applicant
         </button>
       </div>
 
-      <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '2rem', textAlign: 'center' }}>
-        
-        <div style={{ margin: '0 auto', color: iconColor }}>
-          <ColorIcon size={80} />
+      {/* Decision Banner */}
+      <div className="panel" style={{ textAlign: 'center', borderLeft: `4px solid ${isApproved ? 'var(--success)' : 'var(--danger)'}` }}>
+        <div style={{ color: isApproved ? 'var(--success)' : 'var(--danger)', marginBottom: '0.75rem' }}>
+          {isApproved ? <ShieldCheck size={48} /> : <AlertOctagon size={48} />}
         </div>
+        <h2 style={{ fontSize: '1.8rem', fontWeight: 800, letterSpacing: '-0.03em', color: isApproved ? 'var(--success)' : 'var(--danger)' }}>
+          {recommendation}
+        </h2>
+        <p style={{ color: 'var(--text-muted)', marginTop: '0.4rem' }}>Risk Score: <strong style={{ color: 'var(--text)' }}>{riskScore} / 100</strong></p>
+      </div>
 
-        <div>
-           <h1 style={{ fontSize: '2.5rem', color: iconColor }}>{recommendation}</h1>
-           <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem', fontSize: '1.2rem' }}>
-             Simulated Risk Metric: <span style={{ color: 'var(--text-main)', fontWeight: 'bold' }}>{riskScore} / 100</span>
-           </p>
+      {/* Profile */}
+      <div className="panel">
+        <div className="panel-title">Applicant Profile</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem' }}>
+          {[
+            { label: 'Loan Amount',  value: `$${parseInt(applicant.loanAmount).toLocaleString()}` },
+            { label: 'Annual Income',value: `$${parseInt(applicant.annualIncome).toLocaleString()}` },
+            { label: 'Debt-to-Income', value: `${dti}%` },
+            { label: 'Duration',     value: `${applicant.duration} mo` },
+            { label: 'Age',          value: applicant.age },
+            { label: 'Credit Cards', value: applicant.numCards },
+          ].map((item, i) => (
+            <div key={i}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>{item.label}</div>
+              <div style={{ fontSize: '1.1rem', fontWeight: 700 }}>{item.value}</div>
+            </div>
+          ))}
         </div>
+      </div>
 
-        <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1.5rem', borderRadius: '12px', textAlign: 'left' }}>
-           <h3 style={{ marginBottom: '1rem', borderBottom: '1px solid var(--card-border)', paddingBottom: '0.5rem' }}>Applicant Profile</h3>
-           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem' }}>
-              <div>
-                 <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Loan Requested</span>
-                 <p style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>${parseInt(applicant.loanAmount).toLocaleString()}</p>
-              </div>
-              <div>
-                 <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Income</span>
-                 <p style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>${parseInt(applicant.annualIncome).toLocaleString()}</p>
-              </div>
-              <div>
-                 <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Debt-To-Income (Req)</span>
-                 <p style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{dti}%</p>
-              </div>
-           </div>
+      {/* Risk Factors */}
+      <div className="panel">
+        <div className="panel-title">Risk Factors Analysis</div>
+        <div className="factors-list">
+          {factors.map((f, i) => (
+            <div key={i} className={`factor-row ${f.type === 'success' ? 'factor-positive' : f.type === 'danger' ? 'factor-negative' : 'factor-neutral'}`}>
+              <span>{f.message}</span>
+              <span className={`tag ${f.type === 'success' ? 'tag-green' : f.type === 'danger' ? 'tag-red' : 'tag-yellow'}`}>
+                {f.type === 'success' ? '✓ Good' : f.type === 'danger' ? '✗ Risk' : '⚠ Watch'}
+              </span>
+            </div>
+          ))}
         </div>
-
-        <div style={{ textAlign: 'left' }}>
-           <h3 style={{ marginBottom: '1rem' }}>Risk Factors</h3>
-           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {factors.map((factor, idx) => (
-                <div key={idx} style={{ 
-                  display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '1rem', 
-                  borderRadius: '8px', background: `var(--${factor.type})`, opacity: 0.9, color: 'white'
-                }}>
-                  <Info size={20} />
-                  <span>{factor.message}</span>
-                </div>
-              ))}
-           </div>
-        </div>
-
       </div>
     </div>
   );
